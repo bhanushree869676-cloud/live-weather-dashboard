@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Live Weather Dashboard</title>
+
+  <style>
+
+    * { box-sizing: border-box; }
+
+    body {
+
+      margin: 0;
+
+      padding: 25px;
+
+      font-family: Arial, sans-serif;
+
+      color: white;
+
+      text-align: center;
+
+      background: linear-gradient(135deg, #1565c0, #80d0f0);
+
+      min-height: 100vh;
+
+    }
+
+    .container {
+
+      max-width: 800px;
+
+      margin: auto;
+
+    }
+
+    h1 { font-size: 30px; }
+
+    input, button {
+
+      padding: 12px;
+
+      border: none;
+
+      border-radius: 8px;
+
+      margin: 5px;
+
+    }
+
+    input { width: 60%; max-width: 300px; }
+
+    button {
+
+      background: #ffca28;
+
+      cursor: pointer;
+
+      font-weight: bold;
+
+    }
+
+    .card {
+
+      background: rgba(255,255,255,0.2);
+
+      border-radius: 16px;
+
+      padding: 22px;
+
+      margin: 20px 0;
+
+      box-shadow: 0 4px 12px #24508055;
+
+    }
+
+    #temp { font-size: 48px; margin: 5px; }
+
+    #icon { font-size: 60px; }
+
+    .forecast {
+
+      display: grid;
+
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+
+      gap: 10px;
+
+    }
+
+    .day {
+
+      background: rgba(255,255,255,0.22);
+
+      border-radius: 12px;
+
+      padding: 12px 5px;
+
+    }
+
+    .day p { margin: 8px 0; }
+
+    #message { font-weight: bold; }
+
+  </style>
+
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>🌦️ Live Weather Dashboard</h1>
+
+    <p>Check live weather for any city</p>
+
+    <input id="city" placeholder="Enter city name">
+
+    <button onclick="getWeather()">Search</button>
+
+    <p id="message"></p>
+
+    <div class="card">
+
+      <h2 id="location">Search for a city</h2>
+
+      <div id="icon">🌍</div>
+
+      <h2 id="temp">-- °C</h2>
+
+      <p id="description">Weather information appears here</p>
+
+      <p id="details">Humidity: -- | Wind: --</p>
+
+    </div>
+
+    <h2>5-Day Forecast</h2>
+
+    <div id="forecast" class="forecast"></div>
+
+  </div>
+
+  <script>
+
+    const API_KEY = "YOUR_API_KEY";
+
+    const icons = {
+
+      Clear: "☀️",
+
+      Clouds: "☁️",
+
+      Rain: "🌧️",
+
+      Drizzle: "🌦️",
+
+      Thunderstorm: "⛈️",
+
+      Snow: "❄️",
+
+      Mist: "🌫️",
+
+      Fog: "🌫️",
+
+      Haze: "🌫️"
+
+    };
+
+    async function getWeather() {
+
+      const city = document.getElementById("city").value.trim();
+
+      const message = document.getElementById("message");
+
+      if (!city) {
+
+        message.textContent = "Please enter a city name.";
+
+        return;
+
+      }
+
+      message.textContent = "Loading weather...";
+
+      document.getElementById("forecast").innerHTML = "";
+
+      try {
+
+        const url = "https://api.openweathermap.org/data/2.5/weather?q="
+
+          + encodeURIComponent(city)
+
+          + "&appid=" + API_KEY + "&units=metric";
+
+        const response = await fetch(url);
+
+        const data = await response.json();
+
+        if (!response.ok) {
+
+          throw new Error(data.message || "Could not get weather.");
+
+        }
+
+        document.getElementById("location").textContent =
+
+          data.name + ", " + data.sys.country;
+
+        document.getElementById("temp").textContent =
+
+          Math.round(data.main.temp) + " °C";
+
+        document.getElementById("icon").textContent =
+
+          icons[data.weather[0].main] || "🌤️";
+
+        document.getElementById("description").textContent =
+
+          data.weather[0].description;
+
+        document.getElementById("details").textContent =
+
+          "Humidity: " + data.main.humidity + "% | Wind: "
+
+          + data.wind.speed + " m/s";
+
+        await getForecast(data.coord.lat, data.coord.lon);
+
+        message.textContent = "";
+
+      } catch (error) {
+
+        message.textContent =
+
+          "Error: " + error.message +
+
+          ". Check the city name and API key.";
+
+      }
+
+    }
+
+    async function getForecast(lat, lon) {
+
+      const url = "https://api.openweathermap.org/data/2.5/forecast"
+
+        + "?lat=" + lat + "&lon=" + lon
+
+        + "&appid=" + API_KEY + "&units=metric";
+
+      const response = await fetch(url);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(data.message || "Forecast unavailable.");
+
+      }
+
+      const daily = {};
+
+      data.list.forEach(item => {
+
+        const date = item.dt_txt.split(" ")[0];
+
+        if (!daily[date] || item.dt_txt.includes("12:00:00")) {
+
+          daily[date] = item;
+
+        }
+
+      });
+
+      const days = Object.values(daily).slice(0, 5);
+
+      document.getElementById("forecast").innerHTML =
+
+        days.map(day => {
+
+          const date = new Date(day.dt * 1000);
+
+          const name = date.toLocaleDateString("en", {
+
+            weekday: "short",
+
+            day: "numeric"
+
+          });
+
+          const icon = icons[day.weather[0].main] || "🌤️";
+
+          return `<div class="day">
+
+            <strong>${name}</strong>
+
+            <p style="font-size:30px">${icon}</p>
+
+            <p>${Math.round(day.main.temp)} °C</p>
+
+            <p>${day.weather[0].main}</p>
+
+          </div>`;
+
+        }).join("");
+
+    }
+
+    document.getElementById("city").addEventListener("keydown", event => {
+
+      if (event.key === "Enter") getWeather();
+
+    });
+
+  </script>
+
+</body>
+
+</html>
